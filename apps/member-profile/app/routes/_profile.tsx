@@ -10,11 +10,12 @@ import {
   FileText,
   Folder,
   Home,
+  Layers,
+  MessageCircle,
   User,
 } from 'react-feather';
 
-import { isFeatureFlagEnabled } from '@oyster/core/member-profile/server';
-import { getResumeBook } from '@oyster/core/resumes';
+import { getResumeBook } from '@oyster/core/resume-books';
 import { Dashboard, Divider } from '@oyster/ui';
 
 import { Route } from '@/shared/constants';
@@ -23,9 +24,7 @@ import { ensureUserAuthenticated } from '@/shared/session.server';
 export async function loader({ request }: LoaderFunctionArgs) {
   await ensureUserAuthenticated(request);
 
-  const [isOpportunitiesEnabled, resumeBook] = await Promise.all([
-    isFeatureFlagEnabled('opportunities'),
-
+  const [resumeBook] = await Promise.all([
     getResumeBook({
       select: ['resumeBooks.id'],
       where: {
@@ -36,13 +35,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
   ]);
 
   return json({
-    isOpportunitiesEnabled,
     resumeBook,
   });
 }
 
 export default function ProfileLayout() {
-  const { isOpportunitiesEnabled, resumeBook } = useLoaderData<typeof loader>();
+  const { resumeBook } = useLoaderData<typeof loader>();
 
   return (
     <Dashboard>
@@ -80,15 +78,18 @@ export default function ProfileLayout() {
               pathname={Route['/directory']}
               prefetch="intent"
             />
-            {isOpportunitiesEnabled && (
-              <Dashboard.NavigationLink
-                icon={<DollarSign />}
-                isNew
-                label="Opportunities"
-                pathname={Route['/opportunities']}
-                prefetch="intent"
-              />
-            )}
+            <Dashboard.NavigationLink
+              icon={<Layers />}
+              label="Opportunities"
+              pathname={Route['/opportunities']}
+              prefetch="intent"
+            />
+            <Dashboard.NavigationLink
+              icon={<DollarSign />}
+              label="Offers"
+              pathname={Route['/offers']}
+              prefetch="intent"
+            />
             <Dashboard.NavigationLink
               icon={<Briefcase />}
               label="Companies"
@@ -111,6 +112,12 @@ export default function ProfileLayout() {
               icon={<Calendar />}
               label="Events"
               pathname={Route['/events']}
+              prefetch="intent"
+            />
+            <Dashboard.NavigationLink
+              icon={<MessageCircle />}
+              label="Ask AI"
+              pathname={Route['/ask-ai']}
               prefetch="intent"
             />
             <Dashboard.NavigationLink

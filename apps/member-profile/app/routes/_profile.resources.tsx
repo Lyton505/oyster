@@ -1,8 +1,8 @@
 import { json, type LoaderFunctionArgs } from '@remix-run/node';
 import {
+  Form,
   Link,
   Outlet,
-  Form as RemixForm,
   useLoaderData,
   useSearchParams,
   useSubmit,
@@ -13,18 +13,18 @@ import { Plus } from 'react-feather';
 import { isMemberAdmin } from '@oyster/core/admins';
 import { ListSearchParams } from '@oyster/core/member-profile/ui';
 import { track } from '@oyster/core/mixpanel';
-import { getPresignedURL } from '@oyster/core/object-storage';
 import {
   ListResourcesOrderBy,
   ListResourcesWhere,
   type ResourceType,
 } from '@oyster/core/resources';
 import { listResources, listTags } from '@oyster/core/resources/server';
+import { getPresignedURL } from '@oyster/core/s3';
 import { ISO8601Date } from '@oyster/types';
 import {
+  Button,
   Dashboard,
   ExistingSearchParams,
-  getButtonCn,
   Pagination,
   Pill,
   Select,
@@ -240,15 +240,16 @@ function AddResourceLink() {
   const [searchParams] = useSearchParams();
 
   return (
-    <Link
-      className={getButtonCn({})}
-      to={{
-        pathname: Route['/resources/add'],
-        search: searchParams.toString(),
-      }}
-    >
-      <Plus size={16} /> Add Resource
-    </Link>
+    <Button.Slot size="small">
+      <Link
+        to={{
+          pathname: Route['/resources/add'],
+          search: searchParams.toString(),
+        }}
+      >
+        <Plus size={20} /> Add Resource
+      </Link>
+    </Button.Slot>
   );
 }
 
@@ -259,7 +260,7 @@ function SortResourcesForm() {
   const sortKeys = ListResourcesOrderBy._def.innerType.enum;
 
   return (
-    <RemixForm
+    <Form
       className="flex min-w-[12rem] items-center gap-4"
       method="get"
       onChange={(e) => submit(e.currentTarget)}
@@ -277,7 +278,7 @@ function SortResourcesForm() {
       </Select>
 
       <ExistingSearchParams exclude={['orderBy']} />
-    </RemixForm>
+    </Form>
   );
 }
 

@@ -13,15 +13,20 @@ import {
 } from 'react-feather';
 import { match } from 'ts-pattern';
 
+import { countEventAttendees } from '@oyster/core/events/attendees';
 import {
-  countEventAttendees,
   countMessagesSent,
   getActiveStreakLeaderboard,
 } from '@oyster/core/member-profile/server';
 import { getIpAddress, setMixpanelProfile, track } from '@oyster/core/mixpanel';
 import { db } from '@oyster/db';
-import { StudentActiveStatus, Timezone } from '@oyster/types';
-import { Button, cx, Divider, getButtonCn, Text } from '@oyster/ui';
+import {
+  ACTIVATION_REQUIREMENTS,
+  type ActivationRequirement,
+  StudentActiveStatus,
+  Timezone,
+} from '@oyster/types';
+import { Button, cx, Divider, Text } from '@oyster/ui';
 import { toTitleCase } from '@oyster/utils';
 
 import { Card, type CardProps } from '@/shared/components/card';
@@ -50,9 +55,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   ] = await Promise.all([
     getActiveStreakLeaderboard(),
     getStudent(id),
-    countEventAttendees({
-      where: { studentId: id },
-    }),
+    countEventAttendees({ studentId: id }),
     countMessagesSent(id),
     getRecentActiveStatuses(id, timezone),
     getThisWeekActiveStatus(id, timezone),
@@ -175,6 +178,13 @@ async function getStudent(id: string) {
   const joinedAfterActivation =
     row.acceptedAt.valueOf() >=
     dayjs().year(2023).month(5).date(9).startOf('day').toDate().valueOf();
+
+  row.activationRequirementsCompleted =
+    row.activationRequirementsCompleted.filter((requirement) => {
+      return ACTIVATION_REQUIREMENTS.includes(
+        requirement as ActivationRequirement
+      );
+    });
 
   return Object.assign(row, { joinedAfterActivation });
 }
@@ -353,13 +363,14 @@ function OnboardingSessionCard() {
       </Card.Description>
 
       <Button.Group>
-        <a
-          className={getButtonCn({ size: 'small', variant: 'primary' })}
-          href="https://calendly.com/colorstack-onboarding-ambassador/onboarding"
-          target="_blank"
-        >
-          Book Onboarding Session <ExternalLink size={20} />
-        </a>
+        <Button.Slot size="small" variant="primary">
+          <Link
+            target="_blank"
+            to="https://calendly.com/colorstack-onboarding-ambassador/onboarding"
+          >
+            Book Onboarding Session <ExternalLink size={20} />
+          </Link>
+        </Button.Slot>
       </Button.Group>
     </Card>
   );
@@ -373,18 +384,16 @@ function ActivationCard() {
       <Card.Title>Activation ✅</Card.Title>
 
       <Card.Description>
-        You've completed {student.activationRequirementsCompleted.length}/6
-        activation requirements. Once you hit all 6, you will get a gift card to
-        claim your FREE merch! 👀
+        You've completed {student.activationRequirementsCompleted.length}/
+        {ACTIVATION_REQUIREMENTS.length} activation requirements. Once you hit
+        all {ACTIVATION_REQUIREMENTS.length}, you will get a gift card to claim
+        your FREE merch! 👀
       </Card.Description>
 
       <Button.Group>
-        <Link
-          className={getButtonCn({ size: 'small', variant: 'primary' })}
-          to={Route['/home/activation']}
-        >
-          See Progress
-        </Link>
+        <Button.Slot size="small" variant="primary">
+          <Link to={Route['/home/activation']}>See Progress</Link>
+        </Button.Slot>
       </Button.Group>
     </Card>
   );
@@ -624,13 +633,11 @@ function MerchStoreCard() {
       </ul>
 
       <Button.Group>
-        <a
-          href="https://colorstackmerch.org"
-          target="_blank"
-          className={getButtonCn({ variant: 'primary' })}
-        >
-          Shop Now <ExternalLink size={20} />
-        </a>
+        <Button.Slot variant="primary">
+          <a href="https://colorstackmerch.org" target="_blank">
+            Shop Now <ExternalLink size={20} />
+          </a>
+        </Button.Slot>
       </Button.Group>
     </Card>
   );

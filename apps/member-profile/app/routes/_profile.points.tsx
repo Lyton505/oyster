@@ -4,8 +4,8 @@ import {
   type SerializeFrom,
 } from '@remix-run/node';
 import {
+  Form,
   generatePath,
-  Form as RemixForm,
   Link as RemixLink,
   useLoaderData,
   useLocation,
@@ -28,7 +28,6 @@ import { db } from '@oyster/db';
 import {
   Button,
   cx,
-  getButtonCn,
   Link,
   Pill,
   Select,
@@ -150,11 +149,6 @@ async function getActivityHistory(
     query
       .leftJoin('activities', 'activities.id', 'completedActivities.activityId')
       .leftJoin('events', 'events.id', 'completedActivities.eventAttended')
-      .leftJoin(
-        'surveys',
-        'surveys.id',
-        'completedActivities.surveyRespondedTo'
-      )
       .leftJoin('slackMessages as threads', (join) => {
         return join
           .onRef('threads.id', '=', 'completedActivities.threadRepliedTo')
@@ -209,7 +203,6 @@ async function getActivityHistory(
         'resourceUpvoters.id as resourceUpvoterId',
         'resourceUpvoters.lastName as resourceUpvoterLastName',
         'resumeBooks.name as resumeBookName',
-        'surveys.title as surveyRespondedTo',
         'threads.channelId as threadRepliedToChannelId',
         'threads.id as threadRepliedToId',
         'threads.text as threadRepliedToText',
@@ -294,7 +287,7 @@ function TimeframeForm() {
   const submit = useSubmit();
 
   return (
-    <RemixForm
+    <Form
       className="flex min-w-[12rem] items-center gap-4"
       method="get"
       onChange={(e) => submit(e.currentTarget)}
@@ -318,7 +311,7 @@ function TimeframeForm() {
         type="hidden"
         value={searchParams.leaderboardLimit}
       />
-    </RemixForm>
+    </Form>
   );
 }
 
@@ -334,7 +327,7 @@ function PointsLeaderboard({ className }: CardProps) {
       <Card.Header>
         <Card.Title>Points Leaderboard</Card.Title>
 
-        <RemixForm
+        <Form
           className="flex min-w-[8rem]"
           method="get"
           onChange={(e) => submit(e.currentTarget)}
@@ -357,7 +350,7 @@ function PointsLeaderboard({ className }: CardProps) {
             type="hidden"
             value={searchParams.timeframe}
           />
-        </RemixForm>
+        </Form>
       </Card.Header>
 
       <Card.Description>
@@ -445,15 +438,14 @@ function ActivityHistory() {
           </ul>
 
           {completedActivities.length < totalActivitiesCompleted && (
-            <RemixLink
-              className={cx(
-                getButtonCn({ variant: 'secondary' }),
-                'mx-auto mt-8 w-[50%] min-w-[10rem]'
-              )}
-              to={{ search: searchParams.toString() }}
+            <Button.Slot
+              className="mx-auto mt-8 w-[50%] min-w-[10rem]"
+              variant="secondary"
             >
-              Show {increaseLimitBy} More
-            </RemixLink>
+              <RemixLink to={{ search: searchParams.toString() }}>
+                Show {increaseLimitBy} More
+              </RemixLink>
+            </Button.Slot>
           )}
         </>
       ) : (
@@ -472,19 +464,17 @@ function ActivityHistory() {
                   </Text>
 
                   <Button.Group>
-                    <RemixLink
-                      to={Route['/profile/education/add']}
-                      className={getButtonCn({ variant: 'secondary' })}
-                    >
-                      <Plus /> Add Education
-                    </RemixLink>
+                    <Button.Slot variant="secondary">
+                      <RemixLink to={Route['/profile/education/add']}>
+                        <Plus /> Add Education
+                      </RemixLink>
+                    </Button.Slot>
 
-                    <RemixLink
-                      to={Route['/profile/work/add']}
-                      className={getButtonCn({ variant: 'secondary' })}
-                    >
-                      <Plus /> Add Work Experience
-                    </RemixLink>
+                    <Button.Slot variant="secondary">
+                      <RemixLink to={Route['/profile/work/add']}>
+                        <Plus /> Add Work Experience
+                      </RemixLink>
+                    </Button.Slot>
                   </Button.Group>
                 </>
               );
@@ -678,9 +668,6 @@ function ActivityHistoryItemDescription({
           </div>
         </div>
       );
-    })
-    .with('respond_to_survey', () => {
-      return <p>You responded to a survey: "{activity.surveyRespondedTo}"</p>;
     })
     .with('review_company', () => {
       return <p>You reviewed a work experience.</p>;

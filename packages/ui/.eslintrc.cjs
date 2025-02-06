@@ -4,4 +4,7 @@ module.exports = {
   parserOptions: {
     tsconfigRootDir: __dirname,
   },
+  rules: {
+    endOfLine: 'auto',
+  },
 };

@@ -13,22 +13,14 @@ import {
 import dayjs from 'dayjs';
 import { sql } from 'kysely';
 import { jsonBuildObject } from 'kysely/helpers/postgres';
-import {
-  Bookmark,
-  Briefcase,
-  Calendar,
-  Circle,
-  Tag,
-  X,
-  Zap,
-} from 'react-feather';
+import { Bookmark, Calendar, Tag, Zap } from 'react-feather';
 
 import { track } from '@oyster/core/mixpanel';
 import { db } from '@oyster/db';
 import {
   type AccentColor,
+  Button,
   Dashboard,
-  getButtonCn,
   Pagination,
   Pill,
   ProfilePicture,
@@ -37,6 +29,7 @@ import {
   Text,
 } from '@oyster/ui';
 import {
+  ClearFiltersButton,
   FilterButton,
   FilterEmptyMessage,
   FilterItem,
@@ -57,6 +50,7 @@ import {
   BookmarkButton,
   BookmarkForm,
 } from '@/routes/_profile.opportunities.$id_.bookmark';
+import { CompanyColumn, CompanyFilter } from '@/shared/components';
 import { Route } from '@/shared/constants';
 import { ensureUserAuthenticated, user } from '@/shared/session.server';
 
@@ -110,7 +104,7 @@ async function getAppliedCompany(searchParams: URLSearchParams) {
   const companyFromSearch = searchParams.get('company');
 
   if (!companyFromSearch) {
-    return null;
+    return undefined;
   }
 
   const company = await db
@@ -185,14 +179,14 @@ async function listOpportunities(
   searchParams: URLSearchParams,
   { limit, page, memberId }: ListOpportunitiesOptions
 ) {
-  const { bookmarked, company, since, status } =
-    Object.fromEntries(searchParams);
+  const { bookmarked, company, since } = Object.fromEntries(searchParams);
 
   const tags = searchParams.getAll('tag');
 
   const query = db
     .selectFrom('opportunities')
     .leftJoin('companies', 'companies.id', 'opportunities.companyId')
+    .where('opportunities.expiresAt', '>', new Date())
     .$if(!!bookmarked, (qb) => {
       return qb.where((eb) => {
         return eb.exists(() => {
@@ -221,19 +215,6 @@ async function listOpportunities(
       const date = dayjs().subtract(daysAgo, 'day').toDate();
 
       return qb.where('opportunities.createdAt', '>=', date);
-    })
-    .$if(!!status, (qb) => {
-      const regex = new RegExp(status as string, 'i');
-
-      if (regex.test('open')) {
-        return qb.where('opportunities.expiresAt', '>', new Date());
-      }
-
-      if (regex.test('expired')) {
-        return qb.where('opportunities.expiresAt', '<', new Date());
-      }
-
-      return qb;
     })
     .$if(!!tags.length, (qb) => {
       return qb.where((eb) => {
@@ -334,6 +315,8 @@ async function listOpportunities(
 // Page
 
 export default function OpportunitiesPage() {
+  const { allCompanies, appliedCompany } = useLoaderData<typeof loader>();
+
   return (
     <>
       <Dashboard.Header>
@@ -344,9 +327,12 @@ export default function OpportunitiesPage() {
         <div className="flex flex-wrap items-center gap-2">
           <BookmarkFilter />
           <TagFilter />
-          <CompanyFilter />
+          <CompanyFilter
+            allCompanies={allCompanies}
+            emptyMessage="No companies found that are linked to opportunities."
+            selectedCompany={appliedCompany}
+          />
           <DatePostedFilter />
-          <StatusFilter />
         </div>
 
         <ClearFiltersButton />
@@ -370,7 +356,7 @@ function OpportunitiesTable() {
   const columns: TableColumnProps<OpportunityInView>[] = [
     {
       displayName: 'Company',
-      size: '240',
+      size: '200',
       render: (opportunity) => <CompanyColumn {...opportunity} />,
     },
     {
@@ -456,34 +442,6 @@ function OpportunitiesTable() {
   );
 }
 
-function CompanyColumn({
-  companyId,
-  companyLogo,
-  companyName,
-}: OpportunityInView) {
-  if (!companyId || !companyName) {
-    return null;
-  }
-
-  return (
-    <Link
-      className="flex w-fit max-w-full items-center gap-2 hover:underline"
-      target="_blank"
-      to={generatePath(Route['/companies/:id'], { id: companyId })}
-    >
-      <div className="h-8 w-8 flex-shrink-0 rounded-lg border border-gray-200 p-1">
-        <img
-          alt={companyName as string}
-          className="aspect-square h-full w-full rounded-md"
-          src={companyLogo as string}
-        />
-      </div>
-
-      <span className="truncate text-sm">{companyName}</span>
-    </Link>
-  );
-}
-
 function TagsColumn({ id, tags }: OpportunityInView) {
   const [searchParams] = useSearchParams();
 
@@ -491,15 +449,16 @@ function TagsColumn({ id, tags }: OpportunityInView) {
 
   if (!tags.length) {
     return (
-      <Link
-        className={getButtonCn({ size: 'xs', variant: 'secondary' })}
-        to={{
-          pathname: generatePath(Route['/opportunities/:id/refine'], { id }),
-          search: searchParams.toString(),
-        }}
-      >
-        Generate Tags <Zap size={16} />
-      </Link>
+      <Button.Slot size="xs" variant="secondary">
+        <Link
+          to={{
+            pathname: generatePath(Route['/opportunities/:id/refine'], { id }),
+            search: searchParams.toString(),
+          }}
+        >
+          Generate Tags <Zap size={16} />
+        </Link>
+      </Button.Slot>
     );
   }
 
@@ -634,70 +593,6 @@ function TagList() {
   );
 }
 
-function CompanyFilter() {
-  const { appliedCompany } = useLoaderData<typeof loader>();
-
-  return (
-    <FilterRoot>
-      <FilterButton
-        icon={<Briefcase />}
-        popover
-        selectedValues={
-          appliedCompany
-            ? [
-                {
-                  color: 'gray-100',
-                  label: appliedCompany.name,
-                  value: appliedCompany.id,
-                },
-              ]
-            : []
-        }
-      >
-        Company
-      </FilterButton>
-
-      <FilterPopover>
-        <FilterSearch />
-        <CompanyList />
-      </FilterPopover>
-    </FilterRoot>
-  );
-}
-
-function CompanyList() {
-  const { allCompanies, appliedCompany } = useLoaderData<typeof loader>();
-  const { search } = useFilterContext();
-
-  const filteredCompanies = allCompanies.filter((company) => {
-    return new RegExp(search, 'i').test(company.name);
-  });
-
-  if (!filteredCompanies.length) {
-    return (
-      <FilterEmptyMessage>
-        No companies found that have been linked to opportunities.
-      </FilterEmptyMessage>
-    );
-  }
-
-  return (
-    <ul className="overflow-auto">
-      {filteredCompanies.map((company) => {
-        return (
-          <FilterItem
-            checked={company.id === appliedCompany?.id}
-            key={company.id}
-            label={company.name}
-            name="company"
-            value={company.id}
-          />
-        );
-      })}
-    </ul>
-  );
-}
-
 function DatePostedFilter() {
   const [searchParams] = useSearchParams();
 
@@ -737,69 +632,5 @@ function DatePostedFilter() {
         </ul>
       </FilterPopover>
     </FilterRoot>
-  );
-}
-
-function StatusFilter() {
-  const [searchParams] = useSearchParams();
-
-  const status = searchParams.get('status');
-
-  const options: FilterValue[] = [
-    { color: 'orange-100', label: 'Open', value: 'open' },
-    { color: 'red-100', label: 'Expired', value: 'expired' },
-  ];
-
-  const selectedValues = options.filter((option) => {
-    return status === option.value;
-  });
-
-  return (
-    <FilterRoot>
-      <FilterButton icon={<Circle />} popover selectedValues={selectedValues}>
-        Status
-      </FilterButton>
-
-      <FilterPopover>
-        <ul>
-          {options.map((option) => {
-            return (
-              <FilterItem
-                checked={status === option.value}
-                color={option.color}
-                key={option.value}
-                label={option.label}
-                name="status"
-                value={option.value}
-              />
-            );
-          })}
-        </ul>
-      </FilterPopover>
-    </FilterRoot>
-  );
-}
-
-function ClearFiltersButton() {
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  if (searchParams.size === 0) {
-    return null;
-  }
-
-  if (searchParams.size === 1 && searchParams.has('page')) {
-    return null;
-  }
-
-  return (
-    <button
-      className="flex items-center gap-2 rounded-lg border border-gray-300 p-2 text-sm hover:bg-gray-50 active:bg-gray-100"
-      onClick={() => {
-        setSearchParams({});
-      }}
-      type="button"
-    >
-      Clear Filters <X className="text-gray-500" size={16} />
-    </button>
   );
 }
